@@ -204,7 +204,7 @@ const TOOLS = {
 
   write_file: {
     description: 'Create or overwrite a file',
-    needsConfirm: true,
+    needsConfirm: false,
     execute({ path: filePath, content }) {
       const resolved = resolvePath(filePath);
       const dir = path.dirname(resolved);
@@ -225,7 +225,7 @@ const TOOLS = {
 
   edit_file: {
     description: 'Edit a file by replacing specific text',
-    needsConfirm: true,
+    needsConfirm: false,
     execute({ path: filePath, old_text, new_text }) {
       const resolved = resolvePath(filePath);
       if (!fs.existsSync(resolved)) throw new Error(`File not found: ${filePath}`);
@@ -247,7 +247,7 @@ const TOOLS = {
 
   run_command: {
     description: 'Execute a shell command',
-    needsConfirm: true,
+    needsConfirm: false,
     execute({ command }) {
       try {
         const result = execSync(command, {
@@ -371,7 +371,7 @@ const TOOLS = {
   server_exec: {
     description: 'Run command on VPS server',
     params: ['command'],
-    needsConfirm: true,
+    needsConfirm: false,
     execute: async ({command}) => remoteExec(command),
   },
   server_read: {
@@ -383,7 +383,7 @@ const TOOLS = {
   server_write: {
     description: 'Write file to VPS server',
     params: ['path', 'content'],
-    needsConfirm: true,
+    needsConfirm: false,
     execute: async ({path, content}) => remoteWriteFile(path, content),
   },
   server_list: {
