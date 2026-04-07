@@ -133,6 +133,16 @@ Available tools — use XML format inline in your response:
 <tool_call name="write_clipboard"><param name="text">text to copy</param></tool_call>
 <tool_call name="read_screen"></tool_call>
 
+Server tools (VPS at 64.227.110.70):
+<tool_call name="server_exec"><param name="command">shell command on server</param></tool_call>
+<tool_call name="server_read"><param name="path">/home/openclaw/file.js</param></tool_call>
+<tool_call name="server_write"><param name="path">/home/openclaw/file.js</param><param name="content">file content</param></tool_call>
+<tool_call name="server_list"><param name="path">/home/openclaw</param></tool_call>
+<tool_call name="server_search"><param name="query">search term</param><param name="path">/home/openclaw/magi-v2</param></tool_call>
+
+LOCAL tools (read_file, write_file, etc) work on the user's computer.
+SERVER tools (server_*) work on the VPS. Use server tools when user asks about the server, MAGI, or deployed apps.
+
 Rules:
 - Always read files before editing them
 - Show reasoning before changes — briefly

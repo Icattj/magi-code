@@ -33,6 +33,44 @@ function backupFile(filePath) {
 }
 
 // ─── Tool definitions ────────────────────────────────────────
+
+// ── Remote Server Execution ──
+const REMOTE_HOST = process.env.MAGI_SERVER || 'root@64.227.110.70';
+
+async function remoteExec(command) {
+  const { execSync } = await import('child_process');
+  try {
+    return execSync(`ssh ${REMOTE_HOST} "${command.replace(/"/g, '\\"')}"`, {
+      encoding: 'utf8',
+      timeout: 30000
+    });
+  } catch (e) {
+    return 'Error: ' + (e.message || 'SSH failed');
+  }
+}
+
+async function remoteReadFile(path) {
+  return remoteExec(`cat "${path}"`);
+}
+
+async function remoteWriteFile(path, content) {
+  const { execSync } = await import('child_process');
+  const tmpFile = '/tmp/magi-remote-' + Date.now();
+  const fs = await import('fs');
+  fs.writeFileSync(tmpFile, content);
+  execSync(`scp ${tmpFile} ${REMOTE_HOST}:${path}`, { timeout: 15000 });
+  fs.unlinkSync(tmpFile);
+  return 'Written to server: ' + path;
+}
+
+async function remoteListFiles(path) {
+  return remoteExec(`ls -la "${path || '/home/openclaw'}"`);
+}
+
+async function remoteSearchFiles(query, path) {
+  return remoteExec(`grep -rn "${query}" "${path || '/home/openclaw'}" --include="*.js" --include="*.html" --include="*.css" --include="*.json" --include="*.md" 2>/dev/null | head -20`);
+}
+
 const TOOLS = {
   read_file: {
     description: 'Read the contents of a file',
@@ -157,6 +195,36 @@ const TOOLS = {
     params: [],
     needsConfirm: false,
     execute: async () => readScreen(),
+  },
+  server_exec: {
+    description: 'Run command on VPS server',
+    params: ['command'],
+    needsConfirm: true,
+    execute: async ({command}) => remoteExec(command),
+  },
+  server_read: {
+    description: 'Read file from VPS server',
+    params: ['path'],
+    needsConfirm: false,
+    execute: async ({path}) => remoteReadFile(path),
+  },
+  server_write: {
+    description: 'Write file to VPS server',
+    params: ['path', 'content'],
+    needsConfirm: true,
+    execute: async ({path, content}) => remoteWriteFile(path, content),
+  },
+  server_list: {
+    description: 'List files on VPS server',
+    params: ['path'],
+    needsConfirm: false,
+    execute: async ({path}) => remoteListFiles(path || '/home/openclaw'),
+  },
+  server_search: {
+    description: 'Search files on VPS server',
+    params: ['query', 'path'],
+    needsConfirm: false,
+    execute: async ({query, path}) => remoteSearchFiles(query, path),
   },
   list_files: {
     description: 'List files and directories',
