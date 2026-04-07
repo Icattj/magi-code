@@ -4,6 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { execSync } from 'child_process';
 
 const DEFAULT_API_URL = process.env.MAGI_API_URL || 'http://127.0.0.1:3005/v1/chat/completions';
 const DEFAULT_MODEL = 'magi-auto';
@@ -63,7 +64,7 @@ export function loadConfig() {
     agent: fileConfig.agent || 'magi',
     projectDir,
     magiDir,
-    userName: process.env.USER || process.env.USERNAME || os.userInfo().username || 'User',
+    userName: (() => { try { return execSync('git config user.name', {encoding:'utf8'}).trim() || process.env.USER || 'User'; } catch { return process.env.USER || 'User'; } })(),
     projectType: detectProjectType(projectDir),
     ignorePatterns: loadIgnorePatterns(projectDir),
     agents: AGENTS,
