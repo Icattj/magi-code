@@ -134,6 +134,30 @@ const TOOLS = {
     },
   },
 
+  open_url: {
+    description: 'Open URL in browser',
+    params: ['url'],
+    needsConfirm: false,
+    execute: async ({url}) => openUrl(url),
+  },
+  read_clipboard: {
+    description: 'Read clipboard content',
+    params: [],
+    needsConfirm: false,
+    execute: async () => readClipboard(),
+  },
+  write_clipboard: {
+    description: 'Copy text to clipboard',
+    params: ['text'],
+    needsConfirm: false,
+    execute: async ({text}) => writeClipboard(text),
+  },
+  read_screen: {
+    description: 'List active windows/apps',
+    params: [],
+    needsConfirm: false,
+    execute: async () => readScreen(),
+  },
   list_files: {
     description: 'List files and directories',
     needsConfirm: false,
@@ -181,5 +205,58 @@ export function performUndo() {
   } else {
     fs.writeFileSync(last.path, last.oldContent, 'utf-8');
     return { path: last.path, action: 'restored to previous version' };
+  }
+}
+
+// ── Browser & Screen Tools ──
+async function openUrl(url) {
+  const { execSync } = await import('child_process');
+  try {
+    // macOS
+    execSync(\`open "\${url}"\`, { timeout: 5000 });
+    return \`Opened \${url} in default browser\`;
+  } catch {
+    try {
+      // Linux
+      execSync(\`xdg-open "\${url}"\`, { timeout: 5000 });
+      return \`Opened \${url}\`;
+    } catch {
+      return \`Cannot open browser on this system\`;
+    }
+  }
+}
+
+async function readScreen() {
+  const { execSync } = await import('child_process');
+  try {
+    // macOS: capture screen text via accessibility
+    const result = execSync('osascript -e 'tell application "System Events" to get name of every window of every process'', 
+      { encoding: 'utf8', timeout: 5000 });
+    return \`Active windows:\n\${result}\`;
+  } catch {
+    return 'Screen reading not available on this system';
+  }
+}
+
+async function readClipboard() {
+  const { execSync } = await import('child_process');
+  try {
+    return execSync('pbpaste', { encoding: 'utf8', timeout: 3000 });
+  } catch {
+    try {
+      return execSync('xclip -selection clipboard -o', { encoding: 'utf8', timeout: 3000 });
+    } catch {
+      return 'Clipboard not available';
+    }
+  }
+}
+
+async function writeClipboard(text) {
+  const { execSync } = await import('child_process');
+  try {
+    execSync('pbcopy', { input: text, timeout: 3000 });
+    return 'Copied to clipboard';
+  } catch {
+    return 'Clipboard write not available';
   }
 }

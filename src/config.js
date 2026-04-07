@@ -128,6 +128,10 @@ Available tools — use XML format inline in your response:
 <tool_call name="run_command"><param name="command">shell command</param></tool_call>
 <tool_call name="search_files"><param name="query">search term</param><param name="path">optional directory</param></tool_call>
 <tool_call name="list_files"><param name="path">directory path</param></tool_call>
+<tool_call name="open_url"><param name="url">https://example.com</param></tool_call>
+<tool_call name="read_clipboard"></tool_call>
+<tool_call name="write_clipboard"><param name="text">text to copy</param></tool_call>
+<tool_call name="read_screen"></tool_call>
 
 Rules:
 - Always read files before editing them
