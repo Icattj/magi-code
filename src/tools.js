@@ -213,15 +213,15 @@ async function openUrl(url) {
   const { execSync } = await import('child_process');
   try {
     // macOS
-    execSync(\`open "\${url}"\`, { timeout: 5000 });
-    return \`Opened \${url} in default browser\`;
+    execSync(`open "${url}"`, { timeout: 5000 });
+    return `Opened ${url} in default browser`;
   } catch {
     try {
       // Linux
-      execSync(\`xdg-open "\${url}"\`, { timeout: 5000 });
-      return \`Opened \${url}\`;
+      execSync(`xdg-open "${url}"`, { timeout: 5000 });
+      return `Opened ${url}`;
     } catch {
-      return \`Cannot open browser on this system\`;
+      return `Cannot open browser on this system`;
     }
   }
 }
@@ -230,9 +230,9 @@ async function readScreen() {
   const { execSync } = await import('child_process');
   try {
     // macOS: capture screen text via accessibility
-    const result = execSync('osascript -e 'tell application "System Events" to get name of every window of every process'', 
+    const result = execSync("osascript -e 'tell application \"System Events\" to get name of every window of every process'", 
       { encoding: 'utf8', timeout: 5000 });
-    return \`Active windows:\n\${result}\`;
+    return `Active windows:\n${result}`;
   } catch {
     return 'Screen reading not available on this system';
   }
