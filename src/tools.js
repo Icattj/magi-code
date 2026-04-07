@@ -71,6 +71,124 @@ async function remoteSearchFiles(query, path) {
   return remoteExec(`grep -rn "${query}" "${path || '/home/openclaw'}" --include="*.js" --include="*.html" --include="*.css" --include="*.json" --include="*.md" 2>/dev/null | head -20`);
 }
 
+
+// ── Full Computer Control (macOS) ──
+async function takeScreenshot() {
+  const { execSync } = await import('child_process');
+  const path = '/tmp/magi-screenshot-' + Date.now() + '.png';
+  try {
+    execSync('screencapture -x ' + path, { timeout: 5000 });
+    // Convert to base64 for context (first 500 chars to save tokens)
+    const desc = execSync('osascript -e \'tell application "System Events" to get {name, title} of every window of every process whose visible is true\'', { encoding: 'utf8', timeout: 5000 });
+    return 'Screenshot saved: ' + path + '\nVisible windows:\n' + desc;
+  } catch (e) {
+    return 'Screenshot failed: ' + e.message;
+  }
+}
+
+async function clickAt(x, y) {
+  const { execSync } = await import('child_process');
+  try {
+    execSync('osascript -e \'tell application "System Events" to click at {' + x + ',' + y + '}\'', { timeout: 3000 });
+    return 'Clicked at (' + x + ',' + y + ')';
+  } catch {
+    // Fallback with cliclick if installed
+    try {
+      execSync('cliclick c:' + x + ',' + y, { timeout: 3000 });
+      return 'Clicked at (' + x + ',' + y + ')';
+    } catch {
+      return 'Click failed — install cliclick: brew install cliclick';
+    }
+  }
+}
+
+async function typeText(text) {
+  const { execSync } = await import('child_process');
+  try {
+    execSync('osascript -e \'tell application "System Events" to keystroke "' + text.replace(/"/g, '\\"') + '"\'', { timeout: 5000 });
+    return 'Typed: ' + text;
+  } catch (e) {
+    return 'Type failed: ' + e.message;
+  }
+}
+
+async function pressKey(key) {
+  const { execSync } = await import('child_process');
+  const keyMap = {
+    'enter': 'return', 'tab': 'tab', 'escape': 'escape', 'space': 'space',
+    'backspace': 'delete', 'delete': 'forward delete',
+    'up': 'up arrow', 'down': 'down arrow', 'left': 'left arrow', 'right': 'right arrow',
+    'cmd+c': 'keystroke "c" using command down',
+    'cmd+v': 'keystroke "v" using command down',
+    'cmd+a': 'keystroke "a" using command down',
+    'cmd+s': 'keystroke "s" using command down',
+    'cmd+z': 'keystroke "z" using command down',
+    'cmd+t': 'keystroke "t" using command down',
+    'cmd+w': 'keystroke "w" using command down',
+    'cmd+tab': 'keystroke tab using command down',
+  };
+  try {
+    const mapped = keyMap[key.toLowerCase()];
+    if (mapped && mapped.includes('keystroke')) {
+      execSync('osascript -e \'tell application "System Events" to ' + mapped + '\'', { timeout: 3000 });
+    } else {
+      execSync('osascript -e \'tell application "System Events" to key code ' + (mapped || key) + '\'', { timeout: 3000 });
+    }
+    return 'Pressed: ' + key;
+  } catch (e) {
+    return 'Key press failed: ' + e.message;
+  }
+}
+
+async function openApp(appName) {
+  const { execSync } = await import('child_process');
+  try {
+    execSync('open -a "' + appName + '"', { timeout: 5000 });
+    return 'Opened: ' + appName;
+  } catch (e) {
+    return 'Failed to open ' + appName + ': ' + e.message;
+  }
+}
+
+async function openBrowser(url) {
+  const { execSync } = await import('child_process');
+  try {
+    execSync('open "' + url + '"', { timeout: 5000 });
+    return 'Opened in browser: ' + url;
+  } catch (e) {
+    return 'Failed: ' + e.message;
+  }
+}
+
+async function getActiveWindow() {
+  const { execSync } = await import('child_process');
+  try {
+    const result = execSync('osascript -e \'tell application "System Events" to get {name, title} of first process whose frontmost is true\'', { encoding: 'utf8', timeout: 3000 });
+    return 'Active window: ' + result.trim();
+  } catch (e) {
+    return 'Failed: ' + e.message;
+  }
+}
+
+async function getRunningApps() {
+  const { execSync } = await import('child_process');
+  try {
+    return execSync('osascript -e \'tell application "System Events" to get name of every process whose visible is true\'', { encoding: 'utf8', timeout: 5000 });
+  } catch (e) {
+    return 'Failed: ' + e.message;
+  }
+}
+
+async function moveMouse(x, y) {
+  const { execSync } = await import('child_process');
+  try {
+    execSync('cliclick m:' + x + ',' + y, { timeout: 3000 });
+    return 'Mouse moved to (' + x + ',' + y + ')';
+  } catch {
+    return 'Install cliclick first: brew install cliclick';
+  }
+}
+
 const TOOLS = {
   read_file: {
     description: 'Read the contents of a file',
@@ -195,6 +313,60 @@ const TOOLS = {
     params: [],
     needsConfirm: false,
     execute: async () => readScreen(),
+  },
+  screenshot: {
+    description: 'Take screenshot and describe visible windows',
+    params: [],
+    needsConfirm: false,
+    execute: async () => takeScreenshot(),
+  },
+  click: {
+    description: 'Click at screen coordinates (x, y)',
+    params: ['x', 'y'],
+    needsConfirm: false,
+    execute: async ({x, y}) => clickAt(x, y),
+  },
+  type_text: {
+    description: 'Type text using keyboard',
+    params: ['text'],
+    needsConfirm: false,
+    execute: async ({text}) => typeText(text),
+  },
+  press_key: {
+    description: 'Press keyboard shortcut (enter, tab, cmd+c, cmd+v, cmd+s, etc)',
+    params: ['key'],
+    needsConfirm: false,
+    execute: async ({key}) => pressKey(key),
+  },
+  open_app: {
+    description: 'Open application by name (Safari, Terminal, VSCode, etc)',
+    params: ['name'],
+    needsConfirm: false,
+    execute: async ({name}) => openApp(name),
+  },
+  open_browser: {
+    description: 'Open URL in default browser',
+    params: ['url'],
+    needsConfirm: false,
+    execute: async ({url}) => openBrowser(url),
+  },
+  active_window: {
+    description: 'Get current active window info',
+    params: [],
+    needsConfirm: false,
+    execute: async () => getActiveWindow(),
+  },
+  running_apps: {
+    description: 'List all visible running applications',
+    params: [],
+    needsConfirm: false,
+    execute: async () => getRunningApps(),
+  },
+  move_mouse: {
+    description: 'Move mouse to coordinates (x, y)',
+    params: ['x', 'y'],
+    needsConfirm: false,
+    execute: async ({x, y}) => moveMouse(x, y),
   },
   server_exec: {
     description: 'Run command on VPS server',

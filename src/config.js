@@ -140,6 +140,17 @@ Server tools (VPS at 64.227.110.70):
 <tool_call name="server_list"><param name="path">/home/openclaw</param></tool_call>
 <tool_call name="server_search"><param name="query">search term</param><param name="path">/home/openclaw/magi-v2</param></tool_call>
 
+Computer control tools (macOS):
+<tool_call name="screenshot"></tool_call>
+<tool_call name="click"><param name="x">500</param><param name="y">300</param></tool_call>
+<tool_call name="type_text"><param name="text">hello world</param></tool_call>
+<tool_call name="press_key"><param name="key">cmd+s</param></tool_call>
+<tool_call name="open_app"><param name="name">Safari</param></tool_call>
+<tool_call name="open_browser"><param name="url">https://example.com</param></tool_call>
+<tool_call name="active_window"></tool_call>
+<tool_call name="running_apps"></tool_call>
+<tool_call name="move_mouse"><param name="x">500</param><param name="y">300</param></tool_call>
+
 LOCAL tools (read_file, write_file, etc) work on the user's computer.
 SERVER tools (server_*) work on the VPS. Use server tools when user asks about the server, MAGI, or deployed apps.
 
