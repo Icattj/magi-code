@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * ╔══════════════════════════════════════════╗
- * ║  MAGI Code — AI Coding Agent            ║
- * ║  Terminal UI inspired by Claude Code     ║
- * ║  With a cat mascot, because why not      ║
- * ╚══════════════════════════════════════════╝
+ * MAGI Code — AI Coding Agent
+ * Terminal UI inspired by Gemini CLI
  */
 import readline from 'readline';
 import { loadConfig } from './config.js';
@@ -14,8 +11,7 @@ import { sendMessage } from './agent.js';
 import { performUndo } from './tools.js';
 import {
   renderWelcome, renderHelp, renderAgentList,
-  renderContext, renderError, getPromptString,
-  colors, stripAnsi,
+  renderContext, renderError, getPromptString, colors,
 } from './ui.js';
 
 // ─── Globals ─────────────────────────────────────────────────
@@ -24,62 +20,49 @@ let session;
 let context;
 let rl;
 let isProcessing = false;
-let commandHistory = [];
-let historyIndex = -1;
+let abortSignal = { aborted: false };
 
 // ─── Parse CLI Args ──────────────────────────────────────────
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = { agent: null, resume: false };
-
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case '--version':
-      case '-v':
+      case '--version': case '-v':
         console.log('magi-code v1.0.0');
         process.exit(0);
         break;
-      case '--help':
-      case '-h':
+      case '--help': case '-h':
         printUsage();
         process.exit(0);
         break;
-      case '--agent':
-      case '-a':
+      case '--agent': case '-a':
         opts.agent = args[++i];
         break;
-      case '--resume':
-      case '-r':
+      case '--resume': case '-r':
         opts.resume = true;
         break;
     }
   }
-
   return opts;
 }
 
 function printUsage() {
   console.log(`
-  ${colors.primary('MAGI Code')} — AI coding agent ${colors.dim('v1.0.0')}
+  MAGI Code — AI coding agent v1.0.0
 
-  ${colors.bold('Usage:')} magi [options]
+  Usage: magi [options]
 
-  ${colors.bold('Options:')}
+  Options:
     --agent, -a <name>   Start with a specific agent
     --resume, -r         Resume last session
     --version, -v        Show version
     --help, -h           Show this help
 
-  ${colors.bold('Commands (inside MAGI):')}
-    /help                Show all commands
-    /agents              List available agents
-    /agent <name>        Switch agent
-    /exit                Quit
-
-  ${colors.bold('Environment:')}
-    MAGI_API_KEY    Your Anthropic API key
-    MAGI_MODEL           Model to use (default: magi-auto)
-    MAGI_API_URL         Custom API endpoint
+  Environment:
+    MAGI_API_KEY         API key (default: sk-sentra-magi-2026)
+    MAGI_MODEL           Model (default: magi-auto)
+    MAGI_API_URL         API endpoint (default: http://127.0.0.1:3005/v1/chat/completions)
 `);
 }
 
@@ -97,15 +80,7 @@ function startInputLoop() {
 
   rl.on('line', async (line) => {
     const input = line.trim();
-
-    if (!input) {
-      rl.prompt();
-      return;
-    }
-
-    // Save to history
-    commandHistory.push(input);
-    historyIndex = commandHistory.length;
+    if (!input) { rl.prompt(); return; }
 
     if (input.startsWith('/')) {
       await handleCommand(input);
@@ -120,11 +95,12 @@ function startInputLoop() {
     process.exit(0);
   });
 
-  // Handle Ctrl+C during processing
+  // Ctrl+C: cancel current stream or hint to exit
   rl.on('SIGINT', () => {
     if (isProcessing) {
-      isProcessing = false;
+      abortSignal.aborted = true;
       console.log(colors.warning('\n  Cancelled.'));
+      isProcessing = false;
       rl.prompt();
     } else {
       console.log(colors.dim('\n  Press Ctrl+D to exit, or type /exit'));
@@ -165,17 +141,6 @@ async function handleCommand(input) {
       renderAgentList(config.agents, config.agent);
       break;
 
-    case '/panel':
-      if (!args) {
-        console.log(colors.warning('  Usage: /panel <question>'));
-      } else {
-        console.log(colors.dim('\n  Panel mode — consulting multiple agents...\n'));
-        // Send to current agent for now
-        await handleMessage(`[Panel Discussion] ${args}`);
-        return; // handleMessage does its own prompt
-      }
-      break;
-
     case '/context':
       renderContext(session.getContextFiles(), session.estimateTokens());
       break;
@@ -209,8 +174,8 @@ async function handleCommand(input) {
     case '/resume': {
       const resumed = session.resume();
       if (resumed) {
-        console.log(colors.success(`\n  Resumed session from ${resumed.startedAt}\n`));
-        console.log(colors.dim(`  ${session.messages.length} messages loaded, ${session.getContextFiles().length} files in context\n`));
+        console.log(colors.success(`\n  Resumed session from ${resumed.startedAt}`));
+        console.log(colors.dim(`  ${session.messages.length} messages loaded\n`));
       } else {
         console.log(colors.warning('\n  No previous session found.\n'));
       }
@@ -219,7 +184,7 @@ async function handleCommand(input) {
 
     case '/exit':
       session.save();
-      console.log(colors.dim('\n  Goodbye! 🐱\n'));
+      console.log(colors.dim('\n  Session saved. Goodbye! 🐱\n'));
       process.exit(0);
       break;
 
@@ -234,22 +199,14 @@ async function handleCommand(input) {
 // ─── Message Handler ─────────────────────────────────────────
 async function handleMessage(input) {
   isProcessing = true;
-  console.log(); // Spacing
+  abortSignal = { aborted: false };
 
   try {
     await sendMessage(config, session, input, {
-      onToolConfirm: async (toolName, args) => {
+      onToolConfirm: (summary) => {
         return new Promise((resolve) => {
-          const summary = toolName === 'run_command' 
-            ? `Execute: ${args.command}`
-            : toolName === 'write_file'
-            ? `Write to: ${args.path}`
-            : toolName === 'edit_file'
-            ? `Edit: ${args.path}`
-            : `${toolName}`;
-
           rl.question(
-            colors.warning(`  Allow ${summary}? `) + colors.dim('[Y/n] '),
+            '  ' + colors.dim('└ ') + colors.warning(`Allow ${summary}? `) + colors.dim('[Y/n] '),
             (answer) => {
               const a = answer.trim().toLowerCase();
               resolve(a === '' || a === 'y' || a === 'yes');
@@ -257,6 +214,7 @@ async function handleMessage(input) {
           );
         });
       },
+      abortSignal,
     });
   } catch (err) {
     renderError(err.message);
@@ -286,35 +244,28 @@ async function main() {
 
   // Initialize session
   session = new SessionManager(config.magiDir);
-
   if (opts.resume) {
-    const resumed = session.resume();
-    if (!resumed) {
-      session.newSession();
-    }
+    if (!session.resume()) session.newSession();
   } else {
     session.newSession();
   }
 
-  // Initialize context builder
+  // Initialize context
   context = new ContextBuilder(config.projectDir, config.ignorePatterns);
 
   // Check for API key
+  renderWelcome(config);
   if (!config.apiKey) {
-    renderWelcome(config);
-    console.log(colors.warning('  ⚠️  No API key found!'));
-    console.log(colors.dim('  Set it with: export MAGI_API_KEY=sk-ant-...\n'));
-    console.log(colors.dim('  Or create ~/.magi/config.json with: { "apiKey": "sk-ant-..." }\n'));
-  } else {
-    renderWelcome(config);
+    console.log(colors.warning('  ⚠️  No API key configured!'));
+    console.log(colors.dim('  Set: export MAGI_API_KEY=your-key\n'));
   }
 
-  // Start interactive loop
+  // Start input loop
   startInputLoop();
 }
 
 // ─── Run ─────────────────────────────────────────────────────
 main().catch((err) => {
-  console.error(colors.error(`Fatal: ${err.message}`));
+  console.error(`Fatal: ${err.message}`);
   process.exit(1);
 });

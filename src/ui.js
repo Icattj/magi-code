@@ -1,8 +1,8 @@
 /**
- * MAGI Code — Terminal UI Rendering
+ * MAGI Code — Terminal UI
+ * Clean, Gemini CLI-style output with ┌│└ tool blocks
  */
 import chalk from 'chalk';
-import boxen from 'boxen';
 
 // ─── Cat Mascot ──────────────────────────────────────────────
 const CAT_MASCOT = [
@@ -18,74 +18,42 @@ const CAT_MASCOT = [
 ];
 
 // ─── Colors ──────────────────────────────────────────────────
-const colors = {
-  primary: chalk.hex('#89CFF0'),    // Purple
-  secondary: chalk.hex('#60A5FA'),  // Blue
-  success: chalk.hex('#4ADE80'),    // Green
-  warning: chalk.hex('#FBBF24'),    // Yellow
-  error: chalk.hex('#F87171'),      // Red
-  dim: chalk.dim,
-  bold: chalk.bold,
-  muted: chalk.gray,
+export const colors = {
+  primary:   chalk.hex('#89CFF0'),
+  secondary: chalk.hex('#60A5FA'),
+  success:   chalk.hex('#4ADE80'),
+  warning:   chalk.hex('#FBBF24'),
+  error:     chalk.hex('#F87171'),
+  dim:       chalk.dim,
+  bold:      chalk.bold,
+  muted:     chalk.gray,
 };
 
-// ─── Box Drawing Characters ──────────────────────────────────
-const BOX = {
-  tl: '╭', tr: '╮', bl: '╰', br: '╯',
-  h: '─', v: '│',
-  ltee: '├', rtee: '┤',
-};
-
-/**
- * Draw a bordered box with title
- */
-function drawBox(content, { title = '', width = 0, borderColor = colors.dim, titleColor = colors.primary } = {}) {
-  const termWidth = process.stdout.columns || 80;
-  const boxWidth = width || Math.min(termWidth - 2, 72);
-  const innerWidth = boxWidth - 2;
-
-  const lines = [];
-
-  // Top border with optional title
-  if (title) {
-    const titleStr = ` ${typeof titleColor === 'function' ? titleColor(title) : title} `;
-    const titleLen = stripAnsi(titleStr).length;
-    const remaining = innerWidth - titleLen - 1;
-    lines.push(
-      borderColor(BOX.tl + BOX.h) + titleStr + borderColor(BOX.h.repeat(Math.max(0, remaining)) + BOX.tr)
-    );
-  } else {
-    lines.push(borderColor(BOX.tl + BOX.h.repeat(innerWidth) + BOX.tr));
-  }
-
-  // Content lines
-  const contentLines = content.split('\n');
-  for (const line of contentLines) {
-    const stripped = stripAnsi(line);
-    const padding = Math.max(0, innerWidth - stripped.length);
-    lines.push(borderColor(BOX.v) + ' ' + line + ' '.repeat(padding > 0 ? padding - 1 : 0) + (padding > 0 ? ' ' : '') + borderColor(BOX.v));
-  }
-
-  // Bottom border
-  lines.push(borderColor(BOX.bl + BOX.h.repeat(innerWidth) + BOX.br));
-
-  return lines.join('\n');
-}
-
-/**
- * Strip ANSI escape codes for length calculation
- */
-function stripAnsi(str) {
+// ─── Helpers ─────────────────────────────────────────────────
+export function stripAnsi(str) {
   return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1B\].*?\x07/g, '');
 }
 
-/**
- * Pad/truncate string to exact visible width
- */
+function center(text) {
+  const width = process.stdout.columns || 80;
+  const stripped = stripAnsi(text);
+  const pad = Math.max(0, Math.floor((width - stripped.length) / 2));
+  return ' '.repeat(pad) + text;
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 function padTo(str, width) {
   const visible = stripAnsi(str).length;
   if (visible >= width) return str;
   return str + ' '.repeat(width - visible);
+}
+
+function truncate(str, maxLen) {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen - 3) + '...';
 }
 
 // ─── Welcome Screen ──────────────────────────────────────────
@@ -95,12 +63,11 @@ export function renderWelcome(config) {
 
   console.clear();
   console.log();
-  
-  // Centered cat mascot
-  CAT_MASCOT.forEach(line => {
+
+  for (const line of CAT_MASCOT) {
     console.log(colors.primary(center(line)));
-  });
-  
+  }
+
   console.log();
   console.log(center(chalk.bold.hex('#89CFF0')('M A G I')));
   console.log(center(colors.dim('AI Coding Agent')));
@@ -113,231 +80,126 @@ export function renderWelcome(config) {
   console.log();
 }
 
-function center(text) {
-  const width = process.stdout.columns || 80;
-  const stripped = text.replace(/\x1b\[[0-9;]*m/g, '');
-  const pad = Math.max(0, Math.floor((width - stripped.length) / 2));
-  return ' '.repeat(pad) + text;
+// ─── Agent response header ───────────────────────────────────
+export function renderAgentHeader(agentName, emoji) {
+  process.stdout.write('\n  ' + colors.primary(emoji + ' ' + chalk.bold(agentName)) + '\n\n');
 }
 
-
-// ─── Agent Response Box ──────────────────────────────────────
-export function renderResponseStart(agentName, emoji) {
-  const termWidth = process.stdout.columns || 80;
-  const boxWidth = Math.min(termWidth - 4, 72);
-  const title = `${emoji} ${agentName}`;
-  const titleLen = stripAnsi(title).length + 2;
-  const remaining = boxWidth - titleLen - 2;
-  
-  process.stdout.write(
-    colors.primary(BOX.tl + BOX.h + ' ') + 
-    colors.bold(title) + 
-    colors.primary(' ' + BOX.h.repeat(Math.max(0, remaining)) + BOX.tr) + 
-    '\n'
-  );
+// ─── Streaming text output (character by character) ──────────
+export function writeStreamChar(char) {
+  process.stdout.write(char);
 }
 
-export function renderResponseLine(text) {
-  const termWidth = process.stdout.columns || 80;
-  const boxWidth = Math.min(termWidth - 4, 72);
-  const innerWidth = boxWidth - 2;
+// ─── Finish streaming block ─────────────────────────────────
+export function renderStreamEnd() {
+  process.stdout.write('\n');
+}
 
-  const lines = wrapText(text, innerWidth - 2);
-  for (const line of lines) {
-    const padding = Math.max(0, innerWidth - stripAnsi(line).length);
-    process.stdout.write(colors.primary(BOX.v) + ' ' + line + ' '.repeat(Math.max(0, padding - 1)) + (padding > 0 ? ' ' : '') + colors.primary(BOX.v) + '\n');
+// ─── Tool Call Block (┌│└ style) ─────────────────────────────
+export function renderToolStart(toolName, summary) {
+  const label = summary ? `${toolName}: ${summary}` : toolName;
+  console.log('\n  ' + colors.dim('┌ ') + colors.secondary(label));
+}
+
+export function renderToolOutput(text, maxLines = 15) {
+  if (!text) return;
+  const lines = text.split('\n');
+  const show = lines.slice(0, maxLines);
+  for (const line of show) {
+    console.log('  ' + colors.dim('│ ') + line);
+  }
+  if (lines.length > maxLines) {
+    console.log('  ' + colors.dim('│ ') + colors.dim(`... (${lines.length - maxLines} more lines)`));
   }
 }
 
-export function renderResponseEnd() {
-  const termWidth = process.stdout.columns || 80;
-  const boxWidth = Math.min(termWidth - 4, 72);
-  process.stdout.write(colors.primary(BOX.bl + BOX.h.repeat(boxWidth - 2) + BOX.br) + '\n\n');
-}
-
-// ─── Tool Call Display ───────────────────────────────────────
-export function renderToolCall(toolName, args) {
-  const termWidth = process.stdout.columns || 80;
-  const boxWidth = Math.min(termWidth - 8, 66);
-  const innerWidth = boxWidth - 2;
-
-  let summary = '';
-  if (args.path) summary = args.path;
-  else if (args.command) summary = args.command;
-  else if (args.query) summary = args.query;
-  
-  const title = `${toolName}${summary ? ': ' + summary : ''}`;
-  const titleLen = Math.min(stripAnsi(title).length, innerWidth - 4);
-
-  const out = [];
-  out.push(
-    '  ' + colors.dim(BOX.tl + BOX.h + ' ') + 
-    colors.secondary(truncate(title, innerWidth - 4)) + 
-    ' ' + colors.dim(BOX.h.repeat(Math.max(0, innerWidth - titleLen - 4)) + BOX.tr)
-  );
-
-  return out.join('\n');
-}
-
-export function renderToolResult(toolName, result, success = true) {
-  const termWidth = process.stdout.columns || 80;
-  const boxWidth = Math.min(termWidth - 8, 66);
-  const innerWidth = boxWidth - 2;
-
-  const icon = success ? colors.success('✓') : colors.error('✗');
-  const preview = truncateMultiline(result, 8, innerWidth - 4);
-
-  const lines = [];
-  for (const line of preview.split('\n')) {
-    const padded = padTo(line, innerWidth - 2);
-    lines.push('  ' + colors.dim(BOX.v) + ' ' + padded + ' ' + colors.dim(BOX.v));
+export function renderToolEnd(success, message) {
+  if (success) {
+    console.log('  ' + colors.dim('└ ') + colors.success('✓') + ' ' + colors.dim(message || 'Done'));
+  } else {
+    console.log('  ' + colors.dim('└ ') + colors.error('✗') + ' ' + colors.error(message || 'Failed'));
   }
-
-  lines.push('  ' + colors.dim(BOX.bl + BOX.h.repeat(innerWidth) + BOX.br));
-  lines.push('  ' + icon + colors.dim(` ${toolName} done`));
-
-  return lines.join('\n');
+  console.log();
 }
 
-// ─── Diff Display ────────────────────────────────────────────
+// ─── Diff display ────────────────────────────────────────────
 export function renderDiff(filename, oldText, newText) {
-  const lines = [];
+  console.log('  ' + colors.dim('│'));
   const oldLines = oldText.split('\n');
   const newLines = newText.split('\n');
 
-  // Simple inline diff
-  lines.push(colors.dim(`  --- ${filename}`));
-  lines.push(colors.dim(`  +++ ${filename}`));
-
+  // Show removed lines
   for (const line of oldLines) {
     if (!newLines.includes(line)) {
-      lines.push(colors.error(`  - ${line}`));
+      console.log('  ' + colors.dim('│ ') + colors.error('- ' + line));
     }
   }
+  // Show added lines
   for (const line of newLines) {
     if (!oldLines.includes(line)) {
-      lines.push(colors.success(`  + ${line}`));
+      console.log('  ' + colors.dim('│ ') + colors.success('+ ' + line));
     }
   }
-  
-  return lines.join('\n');
 }
 
-// ─── Error Display ───────────────────────────────────────────
+// ─── Confirmation prompt ─────────────────────────────────────
+export function getConfirmPrompt(summary) {
+  return '  ' + colors.dim('└ ') + colors.warning(`Allow ${summary}? `) + colors.dim('[Y/n] ');
+}
+
+// ─── Error ───────────────────────────────────────────────────
 export function renderError(message) {
-  console.log(
-    boxen(colors.error(message), {
-      padding: { left: 1, right: 1, top: 0, bottom: 0 },
-      borderColor: 'red',
-      borderStyle: 'round',
-      title: '✗ Error',
-      titleAlignment: 'left',
-    })
-  );
+  console.log('\n  ' + colors.error('✗ Error: ' + message) + '\n');
 }
 
 // ─── Help Screen ─────────────────────────────────────────────
 export function renderHelp() {
   const cmds = [
-    ['/help',              'Show this help'],
-    ['/agent <name>',      'Switch to a different agent'],
-    ['/agents',            'List all available agents'],
-    ['/panel <question>',  'Ask multiple agents (roundtable)'],
-    ['/context',           'Show files in current context'],
-    ['/undo',              'Revert last file change'],
-    ['/clear',             'Clear chat history'],
-    ['/compact',           'Compress old messages'],
-    ['/resume',            'Resume last session'],
-    ['/exit',              'Quit MAGI Code'],
+    ['/help',         'Show this help'],
+    ['/agent <name>', 'Switch to a different agent'],
+    ['/agents',       'List all available agents'],
+    ['/context',      'Show files in current context'],
+    ['/undo',         'Revert last file change'],
+    ['/clear',        'Clear chat history'],
+    ['/compact',      'Compress old messages'],
+    ['/resume',       'Resume last session'],
+    ['/exit',         'Quit MAGI Code'],
   ];
 
-  const lines = cmds.map(([cmd, desc]) => {
-    return `  ${colors.primary(padTo(cmd, 22))} ${colors.dim(desc)}`;
-  });
-
+  console.log('\n  ' + colors.primary(chalk.bold('🐱 MAGI Code Commands')) + '\n');
+  for (const [cmd, desc] of cmds) {
+    console.log('  ' + colors.primary(padTo(cmd, 20)) + colors.dim(desc));
+  }
   console.log();
-  console.log(drawBox(lines.join('\n'), { title: '🐱 MAGI Code Commands', titleColor: colors.primary }));
-  console.log();
-  console.log(colors.dim('  Shortcuts: Ctrl+C cancel response  •  Ctrl+D exit  •  ↑↓ history'));
+  console.log('  ' + colors.dim('Shortcuts: Ctrl+C cancel response  ·  Ctrl+D exit  ·  ↑↓ history'));
   console.log();
 }
 
 // ─── Agents List ─────────────────────────────────────────────
 export function renderAgentList(agents, currentAgent) {
-  const lines = Object.entries(agents).map(([id, a]) => {
-    const marker = id === currentAgent ? colors.success(' ◉ ') : '   ';
-    return `${marker}${a.emoji} ${colors.bold(padTo(a.name, 10))} ${colors.dim(a.role)}`;
-  });
-  console.log();
-  console.log(drawBox(lines.join('\n'), { title: 'Available Agents' }));
+  console.log('\n  ' + colors.primary(chalk.bold('Available Agents')) + '\n');
+  for (const [id, a] of Object.entries(agents)) {
+    const marker = id === currentAgent ? colors.success('◉') : colors.dim('○');
+    console.log('  ' + marker + ' ' + a.emoji + ' ' + chalk.bold(padTo(a.name, 10)) + colors.dim(a.role));
+  }
   console.log();
 }
 
 // ─── Context Display ─────────────────────────────────────────
 export function renderContext(files, tokenEstimate) {
-  const lines = files.map(f => `  ${colors.dim('•')} ${f}`);
-  if (lines.length === 0) lines.push(colors.dim('  No files in context yet'));
-  lines.push('');
-  lines.push(colors.dim(`  ~${tokenEstimate} tokens estimated`));
-  
-  console.log();
-  console.log(drawBox(lines.join('\n'), { title: '📂 Context' }));
+  console.log('\n  ' + colors.primary(chalk.bold('📂 Context')) + '\n');
+  if (files.length === 0) {
+    console.log('  ' + colors.dim('No files in context yet'));
+  } else {
+    for (const f of files) {
+      console.log('  ' + colors.dim('•') + ' ' + f);
+    }
+  }
+  console.log('  ' + colors.dim(`~${tokenEstimate} tokens estimated`));
   console.log();
 }
 
-// ─── Prompt ──────────────────────────────────────────────────
+// ─── Prompt string ───────────────────────────────────────────
 export function getPromptString() {
   return colors.success('> ');
 }
-
-// ─── Utilities ───────────────────────────────────────────────
-function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-function truncate(str, maxLen) {
-  if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen - 3) + '...';
-}
-
-function truncateMultiline(str, maxLines, maxWidth) {
-  const lines = str.split('\n').slice(0, maxLines);
-  return lines.map(l => truncate(l, maxWidth)).join('\n');
-}
-
-function wrapText(text, width) {
-  if (!text) return [''];
-  const result = [];
-  for (const line of text.split('\n')) {
-    if (stripAnsi(line).length <= width) {
-      result.push(line);
-    } else {
-      let remaining = line;
-      while (stripAnsi(remaining).length > width) {
-        const cut = findCutPoint(remaining, width);
-        result.push(remaining.slice(0, cut));
-        remaining = remaining.slice(cut);
-      }
-      if (remaining) result.push(remaining);
-    }
-  }
-  return result;
-}
-
-function findCutPoint(str, maxWidth) {
-  let visible = 0;
-  let i = 0;
-  let lastSpace = -1;
-  while (i < str.length && visible < maxWidth) {
-    if (str[i] === '\x1B') {
-      const match = str.slice(i).match(/^\x1B\[[0-9;]*[a-zA-Z]/);
-      if (match) { i += match[0].length; continue; }
-    }
-    if (str[i] === ' ') lastSpace = i;
-    visible++;
-    i++;
-  }
-  return lastSpace > maxWidth * 0.3 ? lastSpace + 1 : i;
-}
-
-export { colors, stripAnsi, drawBox, padTo, truncate, BOX };
