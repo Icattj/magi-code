@@ -120,6 +120,14 @@ async function handleCommand(input) {
       renderHelp();
       break;
 
+    case '/autorun': {
+      const { setAutoApprove, getAutoApprove } = await import('./tools.js');
+      if (args === 'off') { setAutoApprove(false); console.log('  ⚠️  Auto-run OFF — will ask before execute'); }
+      else if (args === 'on') { setAutoApprove(true); console.log('  ✅ Auto-run ON — all tools execute immediately'); }
+      else { console.log('  Auto-run: ' + (getAutoApprove() ? 'ON ✅' : 'OFF ⚠️') + '  —  /autorun on|off'); }
+      break;
+    }
+
     case '/agent':
       if (!args) {
         console.log(colors.warning('  Usage: /agent <name>'));
@@ -183,7 +191,7 @@ async function handleCommand(input) {
     }
 
     case '/exit':
-      session.save();
+      if (session) session.save();
       console.log(colors.dim('\n  Session saved. Goodbye! 🐱\n'));
       process.exit(0);
       break;
