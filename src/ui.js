@@ -6,15 +6,11 @@ import boxen from 'boxen';
 
 // ─── Cat Mascot ──────────────────────────────────────────────
 const CAT_MASCOT = [
-  '            ▄█▀ ',
-  '  ▄▄       ▄▄▀  ',
-  ' ████▄▄▄▄▄████  ',
-  ' ███ ██ ██ ███  ',
-  ' ████▄ ▲ ▄████  ',
-  '  █████████████  ',
-  '  ███ █████ ███  ',
-  '  ███  ███  ███  ',
-  '   ▀▀  ▀▀▀  ▀▀  ',
+  '      ▄▄   ▄▄      ',
+  '     ████████       ',
+  '     ██ ▪▪ ██       ',
+  '     ███▲███        ',
+  '      █████         ',
 ];
 
 // ─── Colors ──────────────────────────────────────────────────
@@ -90,105 +86,36 @@ function padTo(str, width) {
 
 // ─── Welcome Screen ──────────────────────────────────────────
 export function renderWelcome(config) {
-  const termWidth = process.stdout.columns || 80;
   const agentInfo = config.agents[config.agent] || config.agents.magi;
   const userName = capitalize(config.userName);
 
   console.clear();
-
-  const outerWidth = Math.min(termWidth - 2, 72);
-  const innerWidth = outerWidth - 2;
+  console.log();
   
-  // Left panel content
-  const leftWidth = 23;
-  const rightWidth = innerWidth - leftWidth - 3;
-
-  const leftLines = [
-    '',
-    `  Welcome back`,
-    `  ${colors.primary(userName)}!`,
-    '',
-    ...CAT_MASCOT.map(l => colors.primary(l)),
-    `  ${chalk.bold('MAGI')}`,
-    '',
-    `  ${colors.muted(agentInfo.emoji + ' ' + agentInfo.name)}`,
-    `  ${colors.dim(truncate(config.projectDir, leftWidth - 2))}`,
-  ];
-
-  // Recent activity (mock for now, will load from session)
-  const recentLines = [
-    colors.muted('  Just started  ') + 'Ready to code',
-    colors.muted('  ...           ') + '/resume for more',
-  ];
-
-  // What's new
-  const newsLines = [
-    '  /agents to switch agents',
-    '  /panel for multi-agent consult',
-    '  ctrl+b to background tasks',
-    '  ... /help for more',
-  ];
-
-  // Build the welcome screen
-  const output = [];
-  const dim = colors.dim;
-
-  // Outer top
-  output.push(dim(BOX.tl + BOX.h.repeat(innerWidth) + BOX.tr));
-  output.push(dim(BOX.v) + ' '.repeat(innerWidth) + dim(BOX.v));
-
-  // Build side-by-side panels
-  const leftPanel = [];
-  // Left box top
-  leftPanel.push(dim('  ' + BOX.tl + BOX.h.repeat(leftWidth) + BOX.tr));
-  for (const line of leftLines) {
-    leftPanel.push(dim('  ' + BOX.v) + padTo(line, leftWidth) + dim(BOX.v));
-  }
-  leftPanel.push(dim('  ' + BOX.bl + BOX.h.repeat(leftWidth) + BOX.br));
-
-  // Right side: recent + news
-  const rightPanel = [];
-  // Recent activity box
-  const recentTitle = ' Recent activity ';
-  const recentRemaining = rightWidth - recentTitle.length - 1;
-  rightPanel.push(dim(BOX.tl + BOX.h) + colors.secondary(recentTitle) + dim(BOX.h.repeat(Math.max(0, recentRemaining)) + BOX.tr));
-  for (const line of recentLines) {
-    rightPanel.push(dim(BOX.v) + padTo(line, rightWidth) + dim(BOX.v));
-  }
-  rightPanel.push(dim(BOX.bl + BOX.h.repeat(rightWidth) + BOX.br));
-
-  // What's new box
-  const newsTitle = " What's new ";
-  const newsRemaining = rightWidth - newsTitle.length - 1;
-  rightPanel.push(dim(BOX.tl + BOX.h) + colors.warning(newsTitle) + dim(BOX.h.repeat(Math.max(0, newsRemaining)) + BOX.tr));
-  for (const line of newsLines) {
-    rightPanel.push(dim(BOX.v) + padTo(line, rightWidth) + dim(BOX.v));
-  }
-  rightPanel.push(dim(BOX.bl + BOX.h.repeat(rightWidth) + BOX.br));
-
-  // Merge panels
-  const maxLines = Math.max(leftPanel.length, rightPanel.length);
-  for (let i = 0; i < maxLines; i++) {
-    const left = i < leftPanel.length ? leftPanel[i] : ' '.repeat(leftWidth + 4);
-    const right = i < rightPanel.length ? rightPanel[i] : '';
-    const leftVisible = stripAnsi(left).length;
-    const rightStr = right;
-    const gap = Math.max(1, innerWidth - leftVisible - stripAnsi(rightStr).length);
-    output.push(dim(BOX.v) + left + ' '.repeat(gap) + rightStr + dim(BOX.v));
-  }
-
-  output.push(dim(BOX.v) + ' '.repeat(innerWidth) + dim(BOX.v));
-
-  // Prompt hint
-  const promptHint = `  ${colors.success('>')} ${colors.dim('_')}`;
-  output.push(dim(BOX.v) + promptHint + ' '.repeat(Math.max(0, innerWidth - stripAnsi(promptHint).length)) + dim(BOX.v));
-
-  // Outer bottom
-  output.push(dim(BOX.bl + BOX.h.repeat(innerWidth) + BOX.br));
-
-  console.log(output.join('\n'));
+  // Centered cat mascot
+  CAT_MASCOT.forEach(line => {
+    console.log(colors.primary(center(line)));
+  });
+  
+  console.log();
+  console.log(center(chalk.bold.hex('#89CFF0')('M A G I')));
+  console.log(center(colors.dim('AI Coding Agent')));
+  console.log();
+  console.log(center(colors.muted(`Welcome back, ${userName}`)));
+  console.log(center(colors.dim(`${agentInfo.emoji} ${agentInfo.name} · ${config.projectType || 'project'}`)));
+  console.log(center(colors.dim(config.projectDir)));
+  console.log();
+  console.log(center(colors.dim('Type a message to start · /help for commands · /exit to quit')));
   console.log();
 }
+
+function center(text) {
+  const width = process.stdout.columns || 80;
+  const stripped = text.replace(/\x1b\[[0-9;]*m/g, '');
+  const pad = Math.max(0, Math.floor((width - stripped.length) / 2));
+  return ' '.repeat(pad) + text;
+}
+
 
 // ─── Agent Response Box ──────────────────────────────────────
 export function renderResponseStart(agentName, emoji) {
