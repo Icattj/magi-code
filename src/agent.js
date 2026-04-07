@@ -27,7 +27,10 @@ export async function sendMessage(config, session, userMessage, { onToolConfirm 
   const apiMessages = session.getApiMessages();
 
   // Start response display
-  renderResponseStart(agentInfo.name, agentInfo.emoji);
+  // Show agent name header only (no box yet)
+  const header = colors.primary('\n  ' + agentInfo.emoji + ' ' + agentInfo.name + '\n');
+  process.stdout.write(header);
+  process.stdout.write(colors.dim('  '));
 
   let fullResponse = '';
   
@@ -35,7 +38,7 @@ export async function sendMessage(config, session, userMessage, { onToolConfirm 
     fullResponse = await streamCompletion(config, systemPrompt, apiMessages);
   } catch (err) {
     renderResponseLine(colors.error(`API Error: ${err.message}`));
-    renderResponseEnd();
+    // response done
     
     if (err.message.includes('API key')) {
       console.log(colors.warning('\n  Set your API key:'));
@@ -49,7 +52,8 @@ export async function sendMessage(config, session, userMessage, { onToolConfirm 
 
   // Display text portion
   if (text.trim()) {
-    renderResponseLine(text.trim());
+    // Clean newline after streaming
+    process.stdout.write('\n\n');
   }
 
   // Handle tool calls
@@ -148,7 +152,7 @@ export async function sendMessage(config, session, userMessage, { onToolConfirm 
     session.addMessage('assistant', fullResponse);
   }
 
-  renderResponseEnd();
+  // response done
   session.save();
 }
 
@@ -226,7 +230,8 @@ function streamCompletion(config, systemPrompt, messages) {
               const delta = event.choices?.[0]?.delta;
               if (delta?.content) {
                 fullText += delta.content;
-                process.stdout.write(colors.dim(delta.content));
+                // Show streaming char-by-char (clean, no box borders during stream)
+                process.stdout.write(delta.content);
               }
             } catch {
               // Skip malformed events
